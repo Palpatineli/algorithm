@@ -1,10 +1,10 @@
-from typing import TypeVar, List
+from typing import TypeVar, List, Tuple
 from copy import deepcopy
 import numpy as np
 from ..array import DataFrame
 from .stimulus import Stimulus
 from .recording import Recording
-from .main import take_segment
+from .utils import take_segment
 
 T = TypeVar("T", bound="SparseRec")
 
@@ -39,9 +39,14 @@ class SparseRec(Recording):
         return new_obj
 
     def fold_trials(self: T) -> T:
-        result = np.stack([take_segment(value, self.trial_anchors - self._pre, self._post) for value in self.values])
+        result = np.stack([take_segment(value, self.trial_anchors - self._pre, self.trial_samples)
+                           for value in self.values])
         self.values = result
         self.axes = [self.axes[0], np.arange(len(self.trial_anchors)),
                      np.linspace(self.pre_time, self.post_time, self.trial_samples)]
         self.converted = True
         return self
+
+    def _segments(self) -> Tuple[np.ndarray, int]:
+        """returns timepoints and lengths in samples"""
+        return self.trial_anchors - self._pre, self.trial_samples

@@ -7,7 +7,7 @@ from noformat import File
 
 from algorithm.time_series import Recording
 
-TEST_DATA_FOLDER = 'plptn/algorithm/test/data'
+TEST_DATA_FOLDER = 'algorithm/test/data'
 
 
 @fixture

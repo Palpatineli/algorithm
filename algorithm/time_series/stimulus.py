@@ -20,11 +20,12 @@ class Stimulus(object):
         self.stim_time = stim_time if stim_time else stim_config['movie_length'] / STIM_FRAME_RATE
         self.blank_time = stim_config['blank_time']
         self.trial_time = self.stim_time + self.blank_time
+        self.timestamps = np.asarray(self.stimulus['timestamps'], dtype=int)
 
     def __len__(self) -> int:
         return len(self.stimulus['timestamps'])
 
-    def sequence(self, feature: str) -> dict:
+    def sequence(self, feature: str) -> np.ndarray:
         return np.asarray(self.stimulus['sequence'][feature])
 
     def unique_trials(self, features: List[str] = None) -> UniqueSequence:

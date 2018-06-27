@@ -65,7 +65,8 @@ class Recording(DataFrame, Stimulus):
             raise ValueError("cannot fold already folded recording")
         segments, trial_length = other._segments()
         full_trace = resample(self.values, self.sample_rate, other.sample_rate, axis=1)
-        folded = take_segment(full_trace, *segments)
+        print(full_trace.shape)
+        folded = np.stack(take_segment(trace, segments, trial_length) for trace in full_trace)
         axes = [self.axes[0].copy(), np.arange(segments.shape[0]),
                 np.arange(0, other.trial_time, 1 / other.sample_rate)]
         result = self.create_like(folded, axes)
@@ -74,7 +75,8 @@ class Recording(DataFrame, Stimulus):
 
     def _segments(self) -> Tuple[np.ndarray, int]:
         trial_time = np.arange(0, self.trial_time, 1 / self.sample_rate)
-        trial_no, trial_length = len(self), len(trial_time)
+        trial_length = len(trial_time)
+        trial_no = self.values.shape[1] if self.converted else (self.values.shape[1] / trial_length)
         return np.arange(trial_no) * trial_length, trial_length
 
     def filter_by(self: T, **kwargs) -> T:

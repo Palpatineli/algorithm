@@ -9,8 +9,9 @@ import numpy as np
 from algorithm.time_series.stimulus import Stimulus
 from algorithm.time_series.utils import take_segment
 from algorithm.time_series.resample import resample
+from algorithm.time_series.recording import Recording, DataFrame
 
-TEST_DATA_FOLDER = 'plptn/algorithm/test/data/contra-test'
+TEST_DATA_FOLDER = 'algorithm/test/data/contra-test'
 
 
 @fixture
@@ -41,5 +42,23 @@ def test_resample():
     correct1 = np.linspace(0, 10, 6, endpoint=False)
     assert(np.allclose(result, correct1))
 
-def test_recording():
-
+# noinspection PyShadowingNames
+def test_recording(stim_seq: dict):
+    record = Recording(DataFrame(np.arange(20).reshape(2, 10), [np.array(['a', 'b']), np.arange(10)]), stim_seq, 2.5)
+    record.stim_time = 1.0
+    record.blank_time = 1.0
+    record.trial_time = 2.0
+    record2 = Recording(DataFrame(np.arange(24).reshape(3, 8), [np.array(['a', 'b', 'c']), np.arange(8)]),
+                        stim_seq, 2)
+    record2.stim_time = 1.0
+    record2.blank_time = 1.0
+    record2.trial_time = 2.0
+    folded = record2.fold_by(record)
+    correct2 = np.array([
+        [[0, 0.8, 1.6, 2.4, 3.2],
+         [4, 4.8, 5.6, 6.4, 7.2]],
+        [[8, 8.8, 9.6, 10.4, 11.2],
+         [12, 12.8, 13.6, 14.4, 15.2]],
+        [[16, 16.8, 17.6, 18.4, 19.2],
+         [20, 20.8, 21.6, 22.4, 23.2]]])
+    assert(np.allclose(folded.values, correct2))

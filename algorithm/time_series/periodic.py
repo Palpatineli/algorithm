@@ -1,9 +1,9 @@
-from typing import Dict
+from typing import Dict, Tuple
 import numpy as np
 
 
 def period2phase(starts: np.ndarray, ends: np.ndarray, record_length: int,
-                 sample_rate: float=20.0) -> (np.ndarray, int, int):
+                 sample_rate: float=20.0) -> Tuple[np.ndarray, int, int]:
     """
     Returns:
         phases, start_index, end_index (+1)
