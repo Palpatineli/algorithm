@@ -1,1 +1,5 @@
-.pytest_cache\/
+dist
+noformat
+*.egg-info
+algorithm/test/data
+.pytest_cache
