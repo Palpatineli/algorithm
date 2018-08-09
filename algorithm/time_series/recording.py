@@ -10,6 +10,7 @@ from .resample import resample
 
 T = TypeVar('T', bound='Recording')
 K = TypeVar('K', bound='Recording')
+L = TypeVar('L', bound='DataFrame')
 
 def _fix_to_length(array: np.ndarray, length: int) -> np.ndarray:
     """extend or cut the second axis of a 2D array to length """
@@ -21,9 +22,12 @@ def _fix_to_length(array: np.ndarray, length: int) -> np.ndarray:
 
 
 class Recording(DataFrame, Stimulus):
-    def __init__(self, data: DataFrame, stimulus: dict, sample_rate: int) -> None:
+    def __init__(self, data: Union[DataFrame, Tuple], stimulus: dict, sample_rate: int) -> None:
         self.converted = False
-        DataFrame.__init__(self, data.values, data.axes)
+        if isinstance(data, DataFrame):
+            DataFrame.__init__(self, data.values, data.axes)
+        else:
+            DataFrame.__init__(self, data[0], data[1])
         Stimulus.__init__(self, stimulus)
         self.sample_rate = sample_rate
         self.onset = int(self.blank_time * sample_rate)
@@ -44,6 +48,8 @@ class Recording(DataFrame, Stimulus):
         """convert x, a data frame with columns of neurons and rows of samples, to a 3D array with x=neuron_id,
         y=trial_id, and z=frame_no_within_trial
         """
+        if self.converted:
+            return self
         trial_time = np.arange(0, self.trial_time, 1 / self.sample_rate)
         trial_no, trial_length = len(self), len(trial_time)
         self.values: np.ndarray = _fix_to_length(self.values, trial_length * trial_no).\
@@ -52,7 +58,7 @@ class Recording(DataFrame, Stimulus):
         self.converted = True
         return self
 
-    def fold_by(self: T, other: K) -> T:
+    def fold_by(self: T, other: K, resample_to_self: bool = False) -> T:
         """Fold traces to other's trial starts and ends.
         Here trial timepoints can be anything, including motion onset and stimulus onset.
         Args:
@@ -61,16 +67,17 @@ class Recording(DataFrame, Stimulus):
             a copy of folded recording, that has the same sample rate as other, and using
                 the other's trial starts and ends
         """
-        if self.converted:
-            raise ValueError("cannot fold already folded recording")
         segments, trial_length = other._segments()
-        full_trace = resample(self.values, self.sample_rate, other.sample_rate, axis=1)
-        print(full_trace.shape)
+        if resample_to_self:
+            segments = np.rint(segments * (self.sample_rate / other.sample_rate))
+            trial_length = np.rint(trial_length * (self.sample_rate / other.sample_rate))
+        else:
+            full_trace = resample(self.values, self.sample_rate, other.sample_rate, axis=1)
         folded = np.stack(take_segment(trace, segments, trial_length) for trace in full_trace)
-        axes = [self.axes[0].copy(), np.arange(segments.shape[0]),
-                np.arange(0, other.trial_time, 1 / other.sample_rate)]
+        sample_rate = self.sample_rate if resample_to_self else other.sample_rate
+        axes = [self.axes[0].copy(), np.arange(segments.shape[0]), np.arange(0, other.trial_time, 1 / sample_rate)]
         result = self.create_like(folded, axes)
-        result.sample_rate = other.sample_rate
+        result.sample_rate = sample_rate
         return result
 
     def _segments(self) -> Tuple[np.ndarray, int]:
@@ -88,3 +95,18 @@ class Recording(DataFrame, Stimulus):
         result = self.create_like(self.values.compress(mask, 1))
         result.stimulus['sequence'] = {key: np.array(sequence[key])[mask] for key in all_keys - filter_keys}
         return result
+
+def fold_by(self: L, other: K, sample_rate: float, resample_to_self: bool = False) -> L:
+    segments, trial_length = other._segments()
+    if resample_to_self:
+        segments = np.rint(segments * (sample_rate / other.sample_rate)).astype(np.int_)
+        trial_length = np.rint(trial_length * (sample_rate / other.sample_rate)).astype(np.int_)
+        full_trace = self.values
+    else:
+        full_trace = resample(self.values, sample_rate, other.sample_rate, axis=1)
+    folded = np.stack(take_segment(trace, segments, trial_length) for trace in full_trace)
+    sample_rate = sample_rate if resample_to_self else other.sample_rate
+    axes = [self.axes[0].copy(), np.arange(segments.shape[0]),
+            np.arange(0, other.trial_time, 1 / sample_rate)]
+    result = self.create_like(folded, axes)
+    return result

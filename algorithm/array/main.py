@@ -163,7 +163,7 @@ class DataFrame(OpDelegatorMixin):
         else:
             return self.create_like(self.values.take(indices, axis), axes)
 
-    def mean(self: T, axis: int = 1) -> T:
+    def mean(self: T, axis: int = -1) -> T:
         return self.create_like(self.values.mean(axis), [*self.axes[0: axis], *self.axes[axis + 1:]])
 
     def enumerate(self: T) -> Iterator[Tuple[List[Any], np.number]]:

@@ -1,9 +1,11 @@
 from os.path import join
 from pkg_resources import resource_filename, Requirement
+import numpy as np
 from pytest import fixture
 from scipy.io import loadmat
 from reader.object_array2dict import convert as cell2dict
 
+from algorithm.array import DataFrame
 from algorithm.time_series.event import find_deviate
 
 TEST_DATA_FOLDER = 'algorithm/test/data/'
@@ -18,5 +20,6 @@ def test_find_deviate(lever_file):
     raw_movement = lever_file['response']['mvmtdata'].ravel()
     calibration_factor = lever_file['params']['lev_cal']
     trace = raw_movement / calibration_factor
-    events = find_deviate(trace)
+    recording = DataFrame(trace, [np.arange(len(trace))])
+    events = find_deviate(recording)
     print(events)

@@ -5,7 +5,7 @@ from scipy.signal import convolve
 from .recording import Recording
 from .utils import take_segment
 
-def find_deviate(trace: np.ndarray, quiet_var: float = 0.00001, window_size: int = 200,
+def find_deviate(trace: Recording, quiet_var: float = 0.00001, window_size: int = 200,
                  event_thres: float = 0.004) -> np.ndarray:
     """Find events where trace stays quiet then move over a threshold.
     Default parameters is configured for regular lever pushes after a 0.125 s gaussian filter.
@@ -17,21 +17,29 @@ def find_deviate(trace: np.ndarray, quiet_var: float = 0.00001, window_size: int
     Returns:
         (indices of events, bool array for these indices being positive crossings)
     """
+    trace_val = trace.values  # type: np.ndarray
+    if trace_val.ndim > 1 and trace_val.shape[0] == 1:
+        trace_val = trace_val[0, :]
     mean_kernel = np.ones(window_size) / window_size
-    square = convolve(trace ** 2, mean_kernel, mode='valid')
-    mean = convolve(trace, mean_kernel, mode='valid')
+    square = convolve(trace_val ** 2, mean_kernel, mode='valid')
+    mean = convolve(trace_val, mean_kernel, mode='valid')
     var = square - mean ** 2
-    deviate = trace[window_size - 1:] - mean
+    deviate = trace_val[window_size - 1:] - mean
     cross = logical_and(var[0: -1] < quiet_var,
                         logical_and(np.abs(deviate[0: -1]) <= event_thres, np.abs(deviate[1:] > event_thres)))
     cross_idx = np.nonzero(cross)[0]
     return cross_idx + window_size - 1, (deviate[0: -1] >= 0)[cross_idx]
 
-def find_response_onset(data: Recording, quite_var: float = 0.0001, window_size: int = 200,
+def find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size: int = 200,
                         event_thres: float = 0.4) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """calculate response onset after stimulus
+    Returns:
+        event_onset in samples, bool mask for trials with response post-stimulus,
+        trials with no response pre-stimulus
+    """
     onsets = np.asarray(data.stimulus['timestamps'])
     pre_period = take_segment(data.values[0, :], onsets - window_size, window_size)
-    quiet_trials = pre_period.var(1) < quite_var
+    quiet_trials = pre_period.var(1) < quiet_var
     pre_means = pre_period.mean(1)
     post_period = take_segment(data.values[0, :], onsets, int(round(data.sample_rate * data.stim_time)))
     post_period -= pre_means.reshape(-1, 1)

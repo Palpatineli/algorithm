@@ -5,6 +5,7 @@ from ..array import DataFrame
 from .stimulus import Stimulus
 from .recording import Recording
 from .utils import take_segment
+from .event import find_deviate, find_response_onset
 
 T = TypeVar("T", bound="SparseRec")
 
@@ -23,6 +24,8 @@ class SparseRec(Recording):
         self.sample_rate = sample_rate
 
     def set_trials(self, trials: np.ndarray, pre_time: float, post_time: float) -> None:
+        if self.initialized:
+            raise ValueError("already initialized!")
         self.trial_anchors = trials
         self.pre_time = pre_time
         self.post_time = post_time
@@ -31,6 +34,15 @@ class SparseRec(Recording):
         self.onset = self._pre
         self.trial_samples = self._pre + self._post
         self.initialized = True
+
+    def center_on(self: T, mode: str='motion', **kwargs) -> T:
+        pre_time = kwargs.pop("pre_time", self.stimulus['config']['blank_time'])
+        post_time = kwargs.pop("post_time", self.stimulus['config']['stim_time'])
+        if mode == 'motion':
+            self.set_trials(find_response_onset(self, **kwargs)[0], pre_time, post_time)
+        elif mode == 'stim':
+            self.set_trials(find_deviate(self, **kwargs), pre_time, post_time)
+        return self
 
     def create_like(self: T, values: np.ndarray, axes: List[np.ndarray] = None) -> T:
         new_obj = self.__class__(DataFrame(values, (axes if axes else self.axes)), deepcopy(self.stimulus),
@@ -43,7 +55,7 @@ class SparseRec(Recording):
                            for value in self.values])
         self.values = result
         self.axes = [self.axes[0], np.arange(len(self.trial_anchors)),
-                     np.linspace(self.pre_time, self.post_time, self.trial_samples)]
+                     np.linspace(-self.pre_time, self.post_time, self.trial_samples)]
         self.converted = True
         return self
 

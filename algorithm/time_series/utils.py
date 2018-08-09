@@ -6,6 +6,8 @@ def take_segment(trace: np.ndarray, events: np.ndarray, length: int) -> np.ndarr
     result = np.empty((len(events), length), dtype=trace.dtype)
     total_length = trace.shape[0]
     for idx, (start, end) in enumerate(zip(events, events + length)):
+        if start < 0:
+            continue
         if end <= total_length:
             result[idx, :] = trace[start:end]
     return result
