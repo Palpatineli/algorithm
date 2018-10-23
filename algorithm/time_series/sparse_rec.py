@@ -1,7 +1,7 @@
-from typing import TypeVar, List, Tuple
+from typing import TypeVar, List, Tuple, Optional
 from copy import deepcopy
 import numpy as np
-from ..array import DataFrame
+from algorithm.array import DataFrame
 from .stimulus import Stimulus
 from .recording import Recording
 from .utils import take_segment
@@ -44,8 +44,8 @@ class SparseRec(Recording):
             self.set_trials(find_deviate(self, **kwargs), pre_time, post_time)
         return self
 
-    def create_like(self: T, values: np.ndarray, axes: List[np.ndarray] = None) -> T:
-        new_obj = self.__class__(DataFrame(values, (axes if axes else self.axes)), deepcopy(self.stimulus),
+    def create_like(self: T, values: np.ndarray, axes: Optional[List[np.ndarray]] = None) -> T:
+        new_obj = self.__class__(DataFrame(values, (axes if axes is not None else self.axes)), deepcopy(self.stimulus),
                                  self.sample_rate)
         new_obj.set_trials(self.trial_anchors, self.pre_time, self.post_time)
         return new_obj
@@ -53,9 +53,9 @@ class SparseRec(Recording):
     def fold_trials(self: T) -> T:
         result = np.stack([take_segment(value, self.trial_anchors - self._pre, self.trial_samples)
                            for value in self.values])
-        self.values = result
-        self.axes = [self.axes[0], np.arange(len(self.trial_anchors)),
-                     np.linspace(-self.pre_time, self.post_time, self.trial_samples)]
+        self.values: np.ndarray = result
+        self.axes: List[np.ndarray] = [self.axes[0], np.arange(len(self.trial_anchors)),
+                                       np.linspace(-self.pre_time, self.post_time, self.trial_samples)]
         self.converted = True
         return self
 

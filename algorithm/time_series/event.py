@@ -40,10 +40,25 @@ def find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size:
     onsets = np.asarray(data.stimulus['timestamps'])
     pre_period = take_segment(data.values[0, :], onsets - window_size, window_size)
     quiet_trials = pre_period.var(1) < quiet_var
-    pre_means = pre_period.mean(1)
-    post_period = take_segment(data.values[0, :], onsets, int(round(data.sample_rate * data.stim_time)))
-    post_period -= pre_means.reshape(-1, 1)
-    event_onset = np.argmax(np.logical_and(post_period[:, 1:] > event_thres,
-                                           post_period[:, 0:-1] <= event_thres), axis=1)
-    correct_trials = np.any(post_period > event_thres, axis=1)
-    return (event_onset + onsets)[correct_trials], correct_trials, quiet_trials
+    length = int(round(data.sample_rate * data.stim_time))
+    post_period = take_segment(data.values[0, :], onsets, length)
+    post_period_1 = post_period.copy()
+    post_period = post_period - pre_period.mean(1).reshape(-1, 1)
+    event_onset = np.argmax((post_period[:, 1:] > event_thres) & (post_period[:, 0:-1] <= event_thres), axis=1)
+    correct_trials = (post_period.max(axis=1) > event_thres)
+    return (event_onset + onsets)[correct_trials], post_period_1, onsets, length, correct_trials, quiet_trials
+
+def _find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size: int = 200,
+                         event_thres: float = 0.4) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """calculate response onset after stimulus
+    Returns:
+        event_onset in samples, bool mask for trials with response post-stimulus,
+        trials with no response pre-stimulus
+    """
+    onsets = np.asarray(data.stimulus['timestamps'])
+    post_period = take_segment(data.values[0, :], onsets, int(round(data.sample_rate * data.stim_time))) -\
+        take_segment(data.values[0, :], onsets - window_size, window_size).mean(1).reshape(-1, 1)
+    event_onset = np.argmax((post_period[:, 1:] > event_thres) & (post_period[:, 0:-1] <= event_thres), axis=1)
+    correct_trials = post_period.max(axis=1) > event_thres
+    return (event_onset + onsets)[correct_trials]
+

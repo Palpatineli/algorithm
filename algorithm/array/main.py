@@ -3,10 +3,10 @@ from typing import Any, Callable, Dict, Tuple, List, TypeVar, Union, Optional, I
 from functools import reduce
 
 import numpy as np
-from numba import jit
 from numpy.lib.npyio import NpzFile
 
 from .array_mixin import OpDelegatorMixin
+from ._main import search_ar_int
 
 T = TypeVar("T", bound="DataFrame")
 
@@ -54,7 +54,7 @@ class DataFrame(OpDelegatorMixin):
         if validate:
             self.validate(values, axes)
         self.values = values
-        self.axes = axes
+        self.axes = axes  # type: List[np.ndarray]
 
     def create_like(self: T, values: np.ndarray, axes: List[np.ndarray] = None) -> T:
         if not axes:
@@ -180,24 +180,6 @@ class DataFrame(OpDelegatorMixin):
                 indices[top_index] += 1
                 if indices[top_index] != max_shape[top_index]:
                     top_index = ndim
-
-
-@jit("int64(int64, int64[:])", nopython=True, nogil=True, cache=True)
-def _find_first(item, ar):  # somehow better than inlining this to search_ar_int
-    """Find the first occurance of item in ar, returns the index"""
-    for idx in range(len(ar)):  # pylint:disable=C0200
-        if item == ar[idx]:
-            return idx
-    return -1
-
-
-@jit("int64[:](int64[:], int64[:])", nopython=True, nogil=True, cache=True)
-def search_ar_int(a, b):
-    """Find the index of all a elements in b"""
-    result = np.empty(a.shape[0], dtype=np.int64)
-    for idx_a, value_a in enumerate(a):
-        result[idx_a] = _find_first(value_a, b)
-    return result
 
 
 def search_ar(array1: np.ndarray, array2: np.ndarray) -> np.ndarray:
