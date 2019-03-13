@@ -4,12 +4,14 @@ import json
 from pkg_resources import resource_filename, Requirement
 from pytest import fixture
 import numpy as np
+from scipy.stats import pearsonr
 
 # noinspection PyProtectedMember
 from algorithm.time_series.stimulus import Stimulus
 from algorithm.time_series.utils import take_segment
 from algorithm.time_series.resample import resample
 from algorithm.time_series.recording import Recording, DataFrame
+from algorithm.time_series.main import mutual_info
 
 TEST_DATA_FOLDER = 'algorithm/test/data/contra-test'
 
@@ -62,3 +64,13 @@ def test_recording(stim_seq: dict):
         [[16, 16.8, 17.6, 18.4, 19.2],
          [20, 20.8, 21.6, 22.4, 23.2]]])
     assert(np.allclose(folded.values, correct2))
+
+def test_mutual_info():
+    r = 0.6
+    sqrtm_r = (1 - np.sqrt(1 - r ** 2)) / r
+    np.random.seed(12345)
+    res = list()
+    for _ in range(1000):
+        a, b = np.dot([[1, sqrtm_r], [sqrtm_r, 1]], np.random.randn(2, 1000))
+        res.append(mutual_info(a, b))
+    assert(abs(np.mean(res) - 0.5 * np.log(1 - r ** 2)) < 1E-3)

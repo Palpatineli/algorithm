@@ -22,7 +22,7 @@ def search_ar_int(integer[:] a, integer[:] b):
         dtype = np.long
     elif integer is cython.longlong:
         dtype = np.longlong
-    result = np.empty(a.shape[0], dtype=dtype)
+    result = np.zeros(a.shape[0], dtype=dtype)
     cdef:
         integer[:] result_view = result
         Py_ssize_t size = a.shape[0]

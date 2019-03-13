@@ -31,13 +31,22 @@ def find_deviate(trace: Recording, quiet_var: float = 0.00001, window_size: int 
     return cross_idx + window_size - 1, (deviate[0: -1] >= 0)[cross_idx]
 
 def find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size: int = 200,
-                        event_thres: float = 0.4) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                        event_thres: float = 0.4)\
+        -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """calculate response onset after stimulus
+    Args:
+        data: the lever data read into a Recording
+        quiet_var: the limit of pre_period to be considered quiet
+        window_size: how many samples are included in the pre-period
+        event_thres: the threshold to cross for correct trial
     Returns:
-        event_onset in samples, bool mask for trials with response post-stimulus,
-        trials with no response pre-stimulus
+        event_onset: in sample id
+        trial_onset: in sample id
+        post_period: event reading in the [window_size] post stimulus/trial onset
+        correct_trials: bool mask for trials with response post-stimulus
+        quiet_trials: trials with no response pre-stimulus
     """
-    onsets = np.asarray(data.stimulus['timestamps'])
+    onsets = np.asarray(data.stimulus['timestamps'], dtype=np.int)
     pre_period = take_segment(data.values[0, :], onsets - window_size, window_size)
     quiet_trials = pre_period.var(1) < quiet_var
     length = int(round(data.sample_rate * data.stim_time))
@@ -46,7 +55,7 @@ def find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size:
     post_period = post_period - pre_period.mean(1).reshape(-1, 1)
     event_onset = np.argmax((post_period[:, 1:] > event_thres) & (post_period[:, 0:-1] <= event_thres), axis=1)
     correct_trials = (post_period.max(axis=1) > event_thres)
-    return (event_onset + onsets)[correct_trials], post_period_1, onsets, length, correct_trials, quiet_trials
+    return (event_onset + onsets)[correct_trials], onsets, post_period_1, correct_trials, quiet_trials
 
 def _find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size: int = 200,
                          event_thres: float = 0.4) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -61,4 +70,3 @@ def _find_response_onset(data: Recording, quiet_var: float = 0.0001, window_size
     event_onset = np.argmax((post_period[:, 1:] > event_thres) & (post_period[:, 0:-1] <= event_thres), axis=1)
     correct_trials = post_period.max(axis=1) > event_thres
     return (event_onset + onsets)[correct_trials]
-

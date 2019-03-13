@@ -1,5 +1,5 @@
 import numpy as np
-from algorithm.time_series.utils import bool2index, splice
+from algorithm.time_series.utils import bool2index, splice, rolling_sum
 
 def test_bool2index():
     a = np.array([1, 0, 1, 1, 1, 0, 0, 1, 0, 0, 1], dtype=bool)
@@ -29,3 +29,14 @@ def test_splice():
                           np.array([[[0, 1], [2, 3]], [[8, 9], [10, 11]]])))
     assert(np.array_equal(splice(np.arange(12).reshape(2, 2, 3), np.array([[0, 1], [0, 2]]), 2),
                           np.array([[[0, 0, 1], [3, 3, 4]], [[6, 6, 7], [9, 9, 10]]])))
+
+def test_rolling():
+    # 1-d
+    assert(np.array_equal(rolling_sum(np.arange(5), 3), np.array([3, 6, 9])))
+    assert(np.array_equal(rolling_sum(np.arange(5), 4), np.array([6, 10])))
+    # 2-d
+    assert(np.array_equal(rolling_sum(np.arange(6).reshape(2, 3), 2), np.array([[1, 3], [7, 9]])))
+    assert(np.array_equal(rolling_sum(np.arange(8).reshape(2, 4), 3), np.array([[3, 6], [15, 18]])))
+    # 3-d
+    assert(np.array_equal(rolling_sum(np.arange(16).reshape(2, 2, 4), 3), np.array([[[3, 6], [15, 18]],
+                                                                                    [[27, 30], [39, 42]]])))

@@ -1,6 +1,7 @@
 """generic functions manipulating time series recordings """
 import numpy as np
 from scipy.stats import ttest_ind
+from sklearn.neighbors import KDTree
 
 from ..array import DataFrame
 from .recording import Recording
@@ -140,3 +141,7 @@ def filter_responsive(data: Recording, alpha: float = 0.01) -> DataFrame:
     indices = data.unique_trials().indices
     responsive_p = data.group_by([indices], _responsiveness)
     return DataFrame(responsive_p.values.min(1) < (alpha / len(indices)), [data.axes[0]])
+
+def mutual_info(x: np.ndarray, y: np.ndarray) -> float:
+    """estimate mutual information in two continuously distributed serieses using kNN"""
+    pass

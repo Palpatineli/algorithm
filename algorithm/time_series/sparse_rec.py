@@ -35,7 +35,9 @@ class SparseRec(Recording):
         self.trial_samples = self._pre + self._post
         self.initialized = True
 
-    def center_on(self: T, mode: str='motion', **kwargs) -> T:
+    def center_on(self: T, mode: str = 'motion', **kwargs) -> T:
+        if self.initialized:
+            return self
         pre_time = kwargs.pop("pre_time", self.stimulus['config']['blank_time'])
         post_time = kwargs.pop("post_time", self.stimulus['config']['stim_time'])
         if mode == 'motion':

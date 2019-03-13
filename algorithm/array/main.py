@@ -1,17 +1,15 @@
 """Define the array class, hide implementation"""
 from typing import Any, Callable, Dict, Tuple, List, TypeVar, Union, Optional, Iterator
 from functools import reduce
-
 import numpy as np
-from numpy.lib.npyio import NpzFile
-
 from .array_mixin import OpDelegatorMixin
 from ._main import search_ar_int
 
 T = TypeVar("T", bound="DataFrame")
+NpzFile = Dict[str, np.ndarray]
 
 
-def __is_1d(array: np.ndarray) -> bool:
+def _is_1d(array: np.ndarray) -> bool:
     if array.ndim == 1:
         return True
     return len(np.flatnonzero(array.shape > 1)) <= 1
@@ -48,8 +46,7 @@ class InvalidDataFrame(ValueError):
 
 
 class DataFrame(OpDelegatorMixin):
-    """Handles n dimensional array with margianl labels, faster than pandas/xarray."""
-
+    """Handles n dimensional array with marginal labels, faster than pandas/xarray."""
     def __init__(self, values: np.ndarray, axes: List[np.ndarray], validate: bool = False) -> None:
         if validate:
             self.validate(values, axes)
@@ -66,7 +63,7 @@ class DataFrame(OpDelegatorMixin):
         if values.ndim != len(axes):
             raise InvalidDataFrame("incompatible dimensions")
         for idx, (i, j) in enumerate(zip(axes, values.shape)):
-            if not __is_1d(i):
+            if not _is_1d(i):
                 raise InvalidDataFrame("axes not 1d")
             if i.size != j:
                 raise InvalidDataFrame(f"{idx}th axis lengths doesn't match")
@@ -95,13 +92,13 @@ class DataFrame(OpDelegatorMixin):
                  extra_axes: Optional[List[np.ndarray]] = None) -> T:
         """group data by groupings starting from the axis 1, and take the means on those axes
         Args:
-            data: DataFrame with 'data' a n-dim array
             groupings: a list of groups, len(groupings[i]) == data['data'].shape[i + 1]
                 np.unique(groupings[0]) will be returns['y'], np.unique(groupings[1]) will be returns['z']
             func: a function to operate on the groups, takes a 2d array and returns a 1d array with the same
                 1st dimension
+            extra_axes: ignored axes
         Returns:
-            a n-dim DataFrame that is meand by group from axes 1-m
+            a n-dim DataFrame that is the mean by group from axes 1-m
         """
         source = self.values
         uniques, unique_indices = zip(*[np.unique(x, return_inverse=True) for x in groupings])
@@ -208,6 +205,7 @@ def common_axis(data_frames: List[T], ax_id: int = 0) -> List[T]:
     Args:
         data_frames: list of dataframes with the {ax_id}th axis having common element, all other dimensions
             need to be the same
+        ax_id: the id of axis for repeats
     Return:
         the same dataframe list with the {ax_id}th axis masked to get the common elements
     """
@@ -227,7 +225,7 @@ def common_axis(data_frames: List[T], ax_id: int = 0) -> List[T]:
 try:  # monkey patch conversion to pd if pandas is installed
     import pandas as pd
 
-    def to_pd(self: DataFrame) -> pd.DataFrame:
+    def to_pd(self: DataFrame) -> Union[pd.DataFrame, pd.Series]:
         ndim = self.values.ndim
         if ndim == 1:
             return pd.Series(self.values, index=self.axes[0])

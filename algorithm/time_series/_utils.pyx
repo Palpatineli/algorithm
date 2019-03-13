@@ -31,7 +31,7 @@ def take_segment(numbers[:] trace, integer[:] events, integer length):
     for idx in range(x_size):
         start = events[idx]
         end = start + length
-        if start >= 0:
+        if start >= 0 and start < total_length:
             if end <= total_length:
                 result_view[idx, :] = trace[start: end]
             else:
@@ -53,6 +53,8 @@ cdef inline void append(long item, long **array, Py_ssize_t *size, Py_ssize_t *i
 ctypedef unsigned char uint8
 from numpy cimport ndarray, uint8_t
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def _bool2index(ndarray[uint8_t, cast=True] series):
     """From a 1d boolean array, take indices in a Nx2 array, where 1st column is
     True segment start and second column is True segment end."""
@@ -79,7 +81,7 @@ def _bool2index(ndarray[uint8_t, cast=True] series):
     if status:
         append(start, &result, &result_size, &result_idx)
         append(size, &result, &result_size, &result_idx)
-    result_array = np.empty((result_idx // 2, 2), dtype=np.long)
+    result_array = np.zeros((result_idx // 2, 2), dtype=np.longlong)
     cdef long[:, ::1] result_view = result_array
     for idx in range(result_idx // 2):
         result_view[idx, 0] = result[idx * 2]
