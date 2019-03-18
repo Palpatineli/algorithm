@@ -121,11 +121,9 @@ class DataFrame(OpDelegatorMixin):
         np.savez_compressed(file_path, **{'data': self.values, **_name_axes(self.axes)})
 
     @classmethod
-    def load(cls, data: Union[str, NpzFile, dict], copy: bool = True) -> "DataFrame":
+    def load(cls, data: NpzFile, copy: bool = True) -> "DataFrame":
         if isinstance(data, str):
-            data = np.load(data)
-        if not isinstance(data, (NpzFile, dict)):
-            raise ValueError('can only load from file_path or actual NpzFile')
+            data = np.load(data)  # noqa
         axes = _order_axes_old(data, copy=copy) if 'row' in data else _order_axes(data, copy=copy)
         return cls(data['data'].copy() if copy else data['data'], axes)
 

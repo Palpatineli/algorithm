@@ -16,9 +16,9 @@ except Exception as error:  # pylint: disable=broad-except
     LONG_DESC = None
 
 extensions = [
-    Extension("algorithm.array._main", ["algorithm.array._main.pyx"], include_dirs=[np.get_include()]),
-    Extension("algorithm.time_series._utils", ["algorithm.time_series._utils.pyx"], include_dirs=[np.get_include()]),
-    Extension("algorithm.utils.first_x", ["algorithm.utils.first_x.pyx"], include_dirs=[np.get_include()])
+    Extension("algorithm.array._main", ["algorithm/array/_main.pyx"], include_dirs=[np.get_include()]),
+    Extension("algorithm.time_series._utils", ["algorithm/time_series/_utils.pyx"], include_dirs=[np.get_include()]),
+    Extension("algorithm.utils.first_x", ["algorithm/utils/first_x.pyx"], include_dirs=[np.get_include()])
 ]
 
 setup(
@@ -32,6 +32,6 @@ setup(
     download_url='https://github.com/Palpatineli/algorithm/archive/{}.tar.gz'.format(version),
     ext_modules=cythonize(extensions),
     tests_require=["pytest"],
-    extras_require=["pandas"],
+    extras_require={'pd': "pandas"},
     long_description=LONG_DESC,
 )

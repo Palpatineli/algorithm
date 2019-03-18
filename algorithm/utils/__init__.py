@@ -3,7 +3,7 @@ from scipy.stats import norm, rv_continuous
 try:
     from .alt_plot import save_chart
 except ImportError:
-    def save_chart(chart, file_path):
+    def save_chart(chart, file_path):  # type: ignore
         raise NotImplementedError("install altair!")
 from .first_x import first_gt, first_ge, first_lt, first_le
 from .main import iter_tree, map_tree, map_tree_parallel, zip_tree, flatten, unflatten
