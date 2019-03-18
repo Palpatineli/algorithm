@@ -24,7 +24,7 @@ extensions = [
 setup(
     name='algorithm',
     version=version,
-    install_requires=['numpy', 'scipy', 'numba', 'noformat', 'Cython'],
+    install_requires=['numpy', 'scipy', 'numba', 'noformat', 'Cython', 'joblib'],
     packages=['algorithm'],
     author="Keji Li",
     author_email="mail@keji.li",
