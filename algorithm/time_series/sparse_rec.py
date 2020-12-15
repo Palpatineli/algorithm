@@ -15,6 +15,7 @@ class SparseRec(Recording):
     trial_anchors = None  # type: np.ndarray
     pre_time = None  # type: float
     post_time = None  # type: float
+    mask = None  # type: np.ndarray
 
     def __init__(self, data: DataFrame, stimulus: dict, sample_rate: int) -> None:
         self.initialized = False  # type: bool
@@ -29,10 +30,11 @@ class SparseRec(Recording):
         self.trial_anchors = trials
         self.pre_time = pre_time
         self.post_time = post_time
-        self._pre = int(round(pre_time * self.sample_rate))
-        self._post = int(round(post_time * self.sample_rate))
+        self._pre = None if pre_time is None else int(round(pre_time * self.sample_rate))
+        self._post = None if post_time is None else int(round(post_time * self.sample_rate))
         self.onset = self._pre
-        self.trial_samples = self._pre + self._post
+        if self._pre is not None and self._post is not None:
+            self.trial_samples = self._pre + self._post
         self.initialized = True
 
     def center_on(self: T, mode: str = 'motion', **kwargs) -> T:
@@ -41,7 +43,9 @@ class SparseRec(Recording):
         pre_time = kwargs.pop("pre_time", self.stimulus['config']['blank_time'])
         post_time = kwargs.pop("post_time", self.stimulus['config']['stim_time'])
         if mode == 'motion':
-            self.set_trials(find_response_onset(self, **kwargs)[0], pre_time, post_time)
+            onset, _, _, mask, _ = find_response_onset(self, **kwargs)
+            self.set_trials(onset, pre_time, post_time)
+            self.mask = mask
         elif mode == 'stim':
             self.set_trials(find_deviate(self, **kwargs), pre_time, post_time)
         return self
@@ -50,6 +54,7 @@ class SparseRec(Recording):
         new_obj = self.__class__(DataFrame(values, (axes if axes is not None else self.axes)), deepcopy(self.stimulus),
                                  self.sample_rate)
         new_obj.set_trials(self.trial_anchors, self.pre_time, self.post_time)
+        new_obj.initialized = self.initialized
         return new_obj
 
     def fold_trials(self: T) -> T:
@@ -64,3 +69,11 @@ class SparseRec(Recording):
     def _segments(self) -> Tuple[np.ndarray, int]:
         """returns timepoints and lengths in samples"""
         return self.trial_anchors - self._pre, self.trial_samples
+
+    def scale(self):
+        values = self.values
+        pre = values[(slice(None),) * (values.ndim - 1) + (slice(None, self.onset),)]
+        post = values[(slice(None),) * (values.ndim - 1) + (slice(self.onset, None),)]
+        post_max = post.max(axis=-1, keepdims=True)
+        pre_mean = pre.mean(axis=-1, keepdims=True)
+        self.values = (values - pre_mean) / (post_max - pre_mean)

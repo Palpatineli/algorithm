@@ -1,5 +1,9 @@
 dist
+build
 noformat
 *.egg-info
 algorithm/test/data
 .pytest_cache
+*.so
+*.c
+*.py

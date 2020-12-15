@@ -1,4 +1,5 @@
 from typing import Dict, List, TypeVar, Callable, Iterator, Tuple
+from itertools import product
 import numpy as np
 from joblib import Parallel, delayed
 
@@ -31,10 +32,14 @@ def map_tree_parallel(fn: Callable[[T], E], tree: Dict[str, List[T]], verbose: i
             output[group_str] = [(idx, result)]
     return {group_str: [value for _, value in sorted(group)] for group_str, group in output.items()}
 
-def zip_tree(tree0: Dict[str, List[T]], tree1: Dict[str, List[E]]) -> Dict[str, List[Tuple[T, E]]]:
-    output: Dict[str, List[Tuple[T, E]]] = dict()
-    for group_str, group in tree0.items():
-        output[group_str] = [(x, y) for x, y in zip(group, tree1[group_str])]
+def map_table(fn: Callable[..., E], *axes: List[List[T]], n: int = 10) -> np.ndarray:
+    results = Parallel(n, prefer="threads")((delayed(fn)(*value)) for value in product(*axes))
+    return np.asarray(results).reshape(*(len(axe) for axe in axes))
+
+def zip_tree(*trees: Dict[str, List[T]]) -> Dict[str, List[List[T]]]:
+    output: Dict[str, List[List[T]]] = dict()
+    for group_str, group in trees[0].items():
+        output[group_str] = [[x, *y] for x, *y in zip(group, *[tree[group_str] for tree in trees[1:]])]
     return output
 
 def flatten(groups: Dict[str, List[T]]) -> Dict[str, T]:
@@ -49,3 +54,28 @@ def unflatten(flat: Dict[str, T]) -> Dict[str, List[T]]:
         for idx in range(no):
             results[group].append(flat[f"{group}-{idx}"])
     return results
+
+def ctake(ar: np.ndarray, indices: np.ndarray, axis=None) -> np.ndarray:
+    if axis is None:
+        mask = np.ones(ar.size, dtype=np.bool_)
+        mask[indices] = False
+        return ar.take(mask)
+    else:
+        mask = np.ones_like(ar, dtype=np.bool_)
+        np.put_along_axis(mask, indices, False, axis)
+        return ar.take(mask, axis)
+
+def rotate45(x):
+    size = x.shape[0]
+    symmetry = np.allclose(x, x.T)
+    res = list()
+    for diff in range(size - 1, -1, -1):
+        off_diagonal = [x[idx, idx + diff] for idx in range(size - diff)]
+        res.append(off_diagonal)
+    if symmetry:
+        return res + res[-2::-1]
+    else:
+        for diff in range(1, size):
+            res.append([x[idx, idx - diff] for idx in range(diff, size)])
+        return res
+

@@ -1,5 +1,6 @@
 """Define the array class, hide implementation"""
-from typing import Any, Callable, Dict, Tuple, List, TypeVar, Union, Optional, Iterator
+from typing import Any, Callable, Dict, Tuple, List, TypeVar, Union, Optional, Iterator, Sequence
+from pathlib import Path
 from functools import reduce
 import numpy as np
 from .array_mixin import OpDelegatorMixin
@@ -7,19 +8,17 @@ from ._main import search_ar_int
 
 T = TypeVar("T", bound="DataFrame")
 NpzFile = Dict[str, np.ndarray]
-
+Sequence.register(np.ndarray)
 
 def _is_1d(array: np.ndarray) -> bool:
     if array.ndim == 1:
         return True
     return len(np.flatnonzero(array.shape > 1)) <= 1
 
-
 def _name_axes(axes: List[np.ndarray], copy: bool = False) -> Dict[str, np.ndarray]:
     """generate axis name in the sequence of x, y, z, xx, yy, zz, xxx, ..."""
     order = np.arange(len(axes))
     return {chr(x) * y: (axis.copy() if copy else axis) for x, y, axis in zip(order % 3 + 120, order // 3 + 1, axes)}
-
 
 def _order_axes(named_axes: Dict[str, np.ndarray], copy: bool = True) -> List[np.ndarray]:
     """generate axis name in the sequence of x, y, z, xx, yy, zz, xxx, ..."""
@@ -40,13 +39,12 @@ def _order_axes_old(named_axes: Dict[str, np.ndarray], copy: bool = True) -> Lis
                        for x, y in zip(order % 3 + 120, order // 3 + 1)])
     return result
 
-
 class InvalidDataFrame(ValueError):
     pass
 
-
 class DataFrame(OpDelegatorMixin):
     """Handles n dimensional array with marginal labels, faster than pandas/xarray."""
+
     def __init__(self, values: np.ndarray, axes: List[np.ndarray], validate: bool = False) -> None:
         if validate:
             self.validate(values, axes)
@@ -54,7 +52,7 @@ class DataFrame(OpDelegatorMixin):
         self.axes = axes  # type: List[np.ndarray]
 
     def create_like(self: T, values: np.ndarray, axes: List[np.ndarray] = None) -> T:
-        if not axes:
+        if axes is None:
             axes = self.axes
         return self.__class__(values, axes, validate=False)
 
@@ -82,11 +80,11 @@ class DataFrame(OpDelegatorMixin):
 
     def __getitem__(self: T, indices) -> T:
         if self.values.ndim == 1:
-            return self.create_like(
-                self.values.__getitem__(indices), [self.axes[0][indices]])
+            return self.create_like(self.values.__getitem__(indices), [self.axes[0][indices]])
         else:
-            return self.create_like(
-                self.values.__getitem__(indices), [axis[index] for index, axis in zip(indices, self.axes)])
+            new_axes = [axis[index] for index, axis in zip(indices, self.axes) if isinstance(axis[index], Sequence)
+                        and not isinstance(axis[index], str)]
+            return self.create_like(self.values.__getitem__(indices), new_axes)
 
     def group_by(self: T, groupings: List[np.ndarray], func: Optional[Callable[[np.ndarray], np.ndarray]] = None,
                  extra_axes: Optional[List[np.ndarray]] = None) -> T:
@@ -101,6 +99,8 @@ class DataFrame(OpDelegatorMixin):
             a n-dim DataFrame that is the mean by group from axes 1-m
         """
         source = self.values
+        if not isinstance(groupings[0], list):
+            groupings = [groupings]
         uniques, unique_indices = zip(*[np.unique(x, return_inverse=True) for x in groupings])
         group_seq = np.vstack([x.ravel() for x in np.meshgrid(*[np.arange(len(x)) for x in uniques], indexing='ij')]).T
         indices = np.vstack([x.ravel() for x in np.meshgrid(*[x for x in unique_indices], indexing='ij')]).T
@@ -122,7 +122,7 @@ class DataFrame(OpDelegatorMixin):
 
     @classmethod
     def load(cls, data: NpzFile, copy: bool = True) -> "DataFrame":
-        if isinstance(data, str):
+        if isinstance(data, (str, Path)):
             data = np.load(data)  # noqa
         axes = _order_axes_old(data, copy=copy) if 'row' in data else _order_axes(data, copy=copy)
         return cls(data['data'].copy() if copy else data['data'], axes)
@@ -133,7 +133,8 @@ class DataFrame(OpDelegatorMixin):
 
     def search(self, search_term: np.ndarray, axis_no: int = 0) -> "DataFrame":
         indices = search_ar(search_term, self.axes[axis_no])
-        return self.create_like(self.values.take(indices, axis_no), self.axes[axis_no][indices])
+        return self.create_like(self.values.take(indices, axis_no),
+                                [*self.axes[:axis_no], self.axes[axis_no][indices], *self.axes[axis_no + 1:]])
 
     def append(self: T, other: T, axis: int = 0) -> T:
         try:
@@ -158,8 +159,9 @@ class DataFrame(OpDelegatorMixin):
         else:
             return self.create_like(self.values.take(indices, axis), axes)
 
-    def mean(self: T, axis: int = -1) -> T:
-        return self.create_like(self.values.mean(axis), [*self.axes[0: axis], *self.axes[axis + 1:]])
+    def mean(self: T, axis: int = -1, **kwargs) -> T:
+        return self.create_like(self.values.mean(axis, **kwargs),
+                                [*self.axes[0: axis], *self.axes[axis + 1:]])
 
     def enumerate(self: T) -> Iterator[Tuple[List[Any], np.number]]:
         axes, ndim, values = self.axes, self.values.ndim, self.values
@@ -176,7 +178,6 @@ class DataFrame(OpDelegatorMixin):
                 if indices[top_index] != max_shape[top_index]:
                     top_index = ndim
 
-
 def search_ar(array1: np.ndarray, array2: np.ndarray) -> np.ndarray:
     """Find the locations of array1 elements in array2"""
     if array1.dtype == np.integer:
@@ -187,7 +188,6 @@ def search_ar(array1: np.ndarray, array2: np.ndarray) -> np.ndarray:
     sorted2_to_sorted1 = np.searchsorted(array2[arg2], array1[arg1])
     return arg2[sorted2_to_sorted1[rev_arg1]]
 
-
 def stack(data_frames: List[T], axis: int = 0) -> T:
     try:
         result_value = np.concatenate([x.values for x in data_frames], axis)
@@ -196,7 +196,6 @@ def stack(data_frames: List[T], axis: int = 0) -> T:
     axes = [x.copy() for x in data_frames[0].axes]
     axes[axis] = np.concatenate([data.axes[axis] for data in data_frames], axis=0)
     return data_frames[0].create_like(result_value, axes)
-
 
 def common_axis(data_frames: List[T], ax_id: int = 0) -> List[T]:
     """Filter an axis to get common planes.

@@ -2,6 +2,9 @@ from math import sqrt, pi
 
 import numpy as np
 from numba import jit
+from .piece_lm import PieceLinear2
+
+__all__ = ["PieceLinear2", "log_likelihood"]
 
 
 @jit(nopython=True, nogil=True, cache=True)

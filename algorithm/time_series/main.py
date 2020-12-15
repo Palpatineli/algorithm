@@ -1,13 +1,10 @@
 """generic functions manipulating time series recordings """
 import numpy as np
 from scipy.stats import ttest_ind
-from sklearn.neighbors import KDTree
-
 from ..array import DataFrame
 from .recording import Recording
 
 FRAME_RATE = 60
-
 
 def erase_noise(series: np.ndarray, threshold: float = 0.4) -> np.ndarray:
     """eliminate peaks with areas smaller than threshold
@@ -28,7 +25,6 @@ def erase_noise(series: np.ndarray, threshold: float = 0.4) -> np.ndarray:
             series[start:end] = 0
     return series
 
-
 def fix_to_length(array: np.ndarray, length: int) -> np.ndarray:
     """extend or cut the second axis of a 2D array to length """
     if array.shape[1] >= length:
@@ -36,7 +32,6 @@ def fix_to_length(array: np.ndarray, length: int) -> np.ndarray:
     new_array = np.zeros((array.shape[0], length), dtype=array.dtype)
     new_array[:, :array.shape[1]] = array
     return new_array
-
 
 def ori_tuning(x: Recording) -> DataFrame:
     """extract ori_tuning from spiking time series data
@@ -48,7 +43,6 @@ def ori_tuning(x: Recording) -> DataFrame:
     """
     return x[:, :, x.onset:].group_by([x.sequence('direction')], lambda x: np.mean(x, (1, 2)))
 
-
 def ori_selectivity(x: DataFrame) -> DataFrame:
     """circular summation version, see @banerjee2015 and @castro2014
     Args:
@@ -58,7 +52,6 @@ def ori_selectivity(x: DataFrame) -> DataFrame:
     """
     cell_id, orientations = x.axes[0], np.exp(np.deg2rad(x.axes[1]) * (2 * 1j))
     return x.create_like(np.abs((x.values * orientations).sum(1)) / x.values.sum(1), [cell_id])
-
 
 def reliability(data: Recording) -> Recording:
     r"""calculate reliability defined as correlation between repeats of external impact
@@ -81,7 +74,6 @@ def reliability(data: Recording) -> Recording:
     movie_ids = np.array([_movie_id(x) for x in data.sequence('movie_id')])
     return data[:, :, :data.onset].group_by([movie_ids], _reliability)  # type: ignore
 
-
 def sparseness(data: Recording) -> Recording:
     r"""Sparseness as defined by inter-frame variation binned through trials.
     .. math:: Sparsenss = \frac{N - \frac{(\sum_i{R_i})^2}{\sum_i(R_i^2)}}{N - 1}
@@ -97,7 +89,6 @@ def sparseness(data: Recording) -> Recording:
     value = (data.trial_samples - activity_mat.sum(-1) ** 2 / (activity_mat ** 2).sum(-1)) / (data.trial_samples - 1)
     return data.create_like(value, activity_axes[0: 2])
 
-
 def signal_noise_ratio_rvr(data: Recording) -> Recording:
     """from Rajeev Rikhye, but doesn't fit the data shown in Banerjee2016, which claims to use Rajeev's algorithm"""
     def z_activity(y: np.ndarray) -> np.ndarray:
@@ -106,7 +97,6 @@ def signal_noise_ratio_rvr(data: Recording) -> Recording:
         return (evoked.mean(1) - spontaneous.mean(1)) / (np.sqrt(evoked.std(1) * spontaneous.std(1)))
 
     return data.group_by([data.unique_trials().indices], z_activity)
-
 
 def signal_noise_ratio_kpl(data: Recording) -> Recording:
     """From Keji Li, not a good definition either."""
@@ -119,13 +109,11 @@ def signal_noise_ratio_kpl(data: Recording) -> Recording:
 
     return data.group_by([data.unique_trials().indices], _activity)
 
-
 def responsiveness(data: Recording) -> Recording:
     def _response(y: np.ndarray) -> np.ndarray:
         return y[:, :, data.onset:].mean((1, 2)) / y[:, :, :data.onset].mean((1, 2))
 
     return data.group_by([data.unique_trials().indices], _response)
-
 
 def filter_responsive(data: Recording, alpha: float = 0.01) -> DataFrame:
     """give a boolean array on whether the activity of a cells at preferred (maximum) stimulus exceeds alpha

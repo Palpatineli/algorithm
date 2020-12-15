@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
 import numpy as np
 import subprocess
@@ -24,8 +24,8 @@ extensions = [
 setup(
     name='algorithm',
     version=version,
-    install_requires=['numpy', 'scipy', 'numba', 'noformat', 'Cython', 'joblib'],
-    packages=['algorithm'],
+    install_requires=['numpy', 'scipy', 'numba', 'noformat', 'Cython', 'joblib', 'scikit-learn'],
+    packages=find_packages(),
     author="Keji Li",
     author_email="mail@keji.li",
     url='https://github.com/Palpatineli/algorithm',

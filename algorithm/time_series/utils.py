@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.fftpack import fft, ifft
+from scipy.signal import correlate
 from ._utils import take_segment
 
 __all__ = ['take_segment', 'splice', 'bool2index', 'rolling_sum']
@@ -40,3 +42,9 @@ def rolling_sum(x: np.ndarray, n: int) -> np.ndarray:
         return result[:, :, n - 1:]
     else:
         raise NotImplementedError
+
+def get_shift(trace0, trace1) -> int:
+    return np.argmax(np.abs(ifft(fft(trace1) * fft(trace0).conjugate())))
+
+def get_shift_small(trace0, trace1) -> int:
+    return np.argmax(correlate(trace1, trace0, method="auto")) % trace0.shape[-1]
